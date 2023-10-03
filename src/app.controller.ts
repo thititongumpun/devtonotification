@@ -1,12 +1,18 @@
-import { Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { Controller, Get, Post, Req, Res, Logger } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Request, Response } from 'express';
-import { WebhookEvent } from '@line/bot-sdk';
-import { handleEvent } from './libs/line';
-
+import { map, lastValueFrom, catchError } from 'rxjs';
+import { AxiosError } from 'axios';
+import { requestConfig } from './libs/request';
+import axios from 'axios';
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  private logger: Logger = new Logger(AppController.name);
+  constructor(
+    private readonly appService: AppService,
+    private readonly httpService: HttpService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -15,25 +21,33 @@ export class AppController {
 
   @Post()
   async webhook(@Req() req: Request, @Res() res: Response) {
-    const events: WebhookEvent[] = req.body.events;
-    const results = await Promise.all(
-      events.map(async (event: WebhookEvent) => {
-        try {
-          await handleEvent(event);
-        } catch (err: unknown) {
-          if (err instanceof Error) {
-            console.error(err);
-          }
+    const articles = this.httpService
+      .get('https://dev.to/api/articles?top=1')
+      .pipe(map((res: any) => res.data))
+      .pipe(
+        catchError((error: AxiosError) => {
+          this.logger.error(error.response.data);
+          throw 'An error happened!';
+        }),
+      );
 
-          return res.status(500).json({
-            status: 'error',
-          });
-        }
-      }),
+    const response = await lastValueFrom(articles);
+    await axios.post(
+      'https://api.line.me/v2/bot/message/broadcast',
+      {
+        messages: [
+          {
+            type: 'text',
+            text: response[0].title,
+          },
+          {
+            type: 'text',
+            text: 'Hello, world2',
+          },
+        ],
+      },
+      requestConfig(process.env.CHANNELACCESSTOKEN),
     );
-    return res.status(200).json({
-      status: 'success',
-      results,
-    });
+    res.status(200).json('q');
   }
 }
