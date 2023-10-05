@@ -6,6 +6,7 @@ import { map, lastValueFrom, catchError } from 'rxjs';
 import { AxiosError } from 'axios';
 import { requestConfig } from './libs/request';
 import axios from 'axios';
+import { DevtoResponse } from './types/DevtoResponse';
 @Controller()
 export class AppController {
   private logger: Logger = new Logger(AppController.name);
@@ -21,28 +22,39 @@ export class AppController {
 
   @Post()
   async webhook(@Req() req: Request, @Res() res: Response) {
-    const articles = this.httpService
-      .get('https://dev.to/api/articles?top=1')
-      .pipe(map((res: any) => res.data))
-      .pipe(
-        catchError((error: AxiosError) => {
-          this.logger.error(error.response.data);
-          throw 'An error happened!';
-        }),
-      );
+    // const articles = this.httpService
+    //   .get<DevtoResponse>('https://dev.to/api/articles?top=1')
+    //   .pipe(map((res: any) => res.data))
+    //   .pipe(
+    //     catchError((error: AxiosError) => {
+    //       this.logger.error(error.response.data);
+    //       throw 'An error happened!';
+    //     }),
+    //   );
 
-    const response = await lastValueFrom(articles);
+    // const response = await lastValueFrom(articles);
+    const articles = await lastValueFrom(
+      this.httpService
+        .post<DevtoResponse[]>('https://dev.to/api/articles?top=1')
+        .pipe(map((res) => res.data))
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(error.response.data);
+            throw 'An error happened!';
+          }),
+        ),
+    );
     await axios.post(
       'https://api.line.me/v2/bot/message/broadcast',
       {
         messages: [
           {
             type: 'text',
-            text: response[0].title,
+            text: articles[0].title,
           },
           {
             type: 'text',
-            text: 'Hello, world2',
+            text: articles[0].description,
           },
         ],
       },
