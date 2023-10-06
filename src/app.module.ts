@@ -3,11 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { HttpModule, HttpService } from '@nestjs/axios';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [HttpModule, ConfigModule.forRoot(), ScheduleModule.forRoot()],
   controllers: [AppController],
-  providers: [AppService, HttpService],
+  providers: [AppService],
 })
 export class AppModule {}
